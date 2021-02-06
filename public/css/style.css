@@ -1,8 +1,8 @@
-.game-board {
+.board {
     background-color: gainsboro;
 }
 
-.game-cell {
+.cell {
     border: 1px solid;
     font-size: 5rem;
     height: 150px;
@@ -10,11 +10,15 @@
     width: 150px;
 }
 
-.game-cell:hover {
+.cell:hover {
     cursor: pointer;
     background-color: rgb(192, 191, 191);
 }
 
-.game-cell:active {
+.cell:active {
     background-color: rgb(155, 154, 154);
+}
+
+.win-cell {
+    background-color: greenyellow !important;
 }

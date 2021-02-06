@@ -10,80 +10,43 @@
 </head>
 
 <body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Pentiminax</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Accueil</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="gamesDropdown" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            Jeux
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="/games/tic-tac-toe">Morpion</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
     <div class="container mt-5">
         <div class="row">
-            <div class="col-6 offset-3">
-
-                <div class="alert alert-danger d-none" role="alert" id="error-message">
-                    Le nombre maximum de joueurs à été atteint
-                </div>
-
-                <div class="card mb-3" id="user-card">
-                    <div class="card-body">
-
-                        <form method="POST" id="form">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Nom d'utilisateur</label>
-                                <input type="text" class="form-control" id="username"
-                                    placeholder="Saisir votre nom d'utilisateur">
-                            </div>
-                            <button type="submit" class="btn btn-primary">Jouer</button>
-                        </form>
-
-                    </div>
-                </div>
-
-                <div class="d-none" id="waiting-area">
-                    <div class="card">
-                        <div class="card-header">En attente d'un autre joueur</div>
-                        <div class="card-body mx-auto">
-                            <div class="spinner-border" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body mx-auto">
-                            Partage ce lien pour inviter un autre joueur à jouer avec toi : <span id="link-to-share"></span>
-                        </div>
-                    </div>
-                </div>
-
-
-                <div class="card d-none" id="game-card">
-                    <div class="card-header">
-                        Tic-tac-toe
-                    </div>
-                    <div class="card-body mx-auto">
-                        <table class="game-board">
-                            <tr>
-                                <td class="game-cell" id="cell-1-1"></td>
-                                <td class="game-cell" id="cell-1-2"></td>
-                                <td class="game-cell" id="cell-1-3"></td>
-                            </tr>
-
-                            <tr>
-                                <td class="game-cell" id="cell-2-1"></td>
-                                <td class="game-cell" id="cell-2-2"></td>
-                                <td class="game-cell" id="cell-2-3"></td>
-                            </tr>
-
-                            <tr>
-                                <td class="game-cell" id="cell-3-1"></td>
-                                <td class="game-cell" id="cell-3-2"></td>
-                                <td class="game-cell" id="cell-3-3"></td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
+            <div class="col-sm-12 col-md-6 offset-md-3">
 
             </div>
         </div>
     </div>
     <script src="./jquery/jquery.min.js"></script>
     <script src="./bootstrap/js/bootstrap.min.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/index.js"></script>
 </body>
 
 </html>

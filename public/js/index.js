@@ -1,22 +1,122 @@
 const player = {
-    username: "",
-    symbol: "X",
+    host: false,
     playedCell: "",
-    room: ""
+    roomId: null,
+    username: "",
+    socketId: "",
+    symbol: "X",
+    turn: false,
+    win: false
 };
+
+const restartArea = $("#restart-area");
+const waitingArea = $("#waiting-area");
+const gameCard = $("#game-card");
+const roomsCard = $("#rooms-card");
+const turnMsg = $("#turn-message");
 
 const socket = io();
 
-socket.on('gameStart', () => {
-    $("#waiting-area").addClass('d-none');
-    $("#game-card").removeClass('d-none');
+let ennemyUsername = "";
+
+socket.emit('get rooms');
+
+socket.on('list rooms', (rooms) => {
+    let html = "";
+
+    if (rooms.length > 0) {
+        rooms.forEach(room => {
+            if (room.players.length !== 2) {
+                html += `<li class="list-group-item d-flex justify-content-between">
+                <p class="p-0 m-0 flex-grow-1 fw-bold">Salon de ${room.players[0].username} - ${room.id}</p>
+                <button class="btn btn-sm btn-success join-room" data-room="${room.id}">Rejoindre</button>
+            </li>`;
+            }
+        });
+
+        if (html !== "") {
+            roomsCard.removeClass('d-none');
+            $("#rooms-list").append(html);
+            $(".join-room").on("click", function () {
+                if ($("#username").val() !== "") {
+                    const roomId = $(this).data('room');
+
+                    player.username = $("#username").val();
+                    player.socketId = socket.id;
+                    player.roomId = roomId;
+
+                    socket.emit('userData', player);
+                    $("#user-card").hide();
+                    $("#waiting-area").removeClass('d-none');
+                    roomsCard.addClass('d-none');
+                }
+            });
+        }
+    }
+});
+
+socket.on('start game', (players) => {
+    startGame(players);
+});
+
+socket.on('gameRestart', (players) => {
+    restartGame(players);
 });
 
 socket.on('play', (ennemyPlayer) => {
-    console.log(player.username + " - " + ennemyPlayer.username);
-    if (ennemyPlayer.username !== player.username) {
-        $(`#${ennemyPlayer.playedCell}`).html("O");
+
+    if (ennemyPlayer.username !== player.username && !ennemyPlayer.turn) {
+
+        $(`#${ennemyPlayer.playedCell}`).addClass('text-danger').html("O");
+
+        if (ennemyPlayer.win) {
+            updateTurnMessage('alert-info', 'alert-danger', `C'est perdu ! <b>${ennemyPlayer.username}</b> a gagné !`);
+            console.log(ennemyPlayer);
+            calculateWinner(ennemyPlayer.playedCell, 'O');
+
+            if (player.host) {
+                restartArea.removeClass('d-none');
+            }
+
+            return;
+        }
+
+        if (gameFinished()) {
+            $("#turn-message").removeClass('alert-info').addClass('alert-warning').html(`C'est une egalité !`);
+            return;
+        }
+
+        $("#turn-message").removeClass('alert-info').addClass('alert-success').html(`C'est ton tour de jouer`);
+        player.turn = true;
+    } else {
+        if (player.win) {
+            $("#turn-message").addClass('alert-success').html("Félicitations, tu as gagné la partie !");
+
+            if (player.host) {
+                restartArea.removeClass('d-none');
+            }
+
+            return;
+        }
+
+        if (gameFinished()) {
+            $("#turn-message").removeClass('alert-info').addClass('alert-warning').html(`C'est une egalité !`);
+
+            if (player.host) {
+                restartArea.removeClass('d-none');
+            }
+
+            return;
+        }
+
+        $("#turn-message").removeClass('alert-success').addClass('alert-info').html(`C'est au tour de <b>${ennemyUsername}</b> de jouer`);
+        player.turn = false;
     }
+});
+
+socket.on('join room', (roomId) => {
+    player.roomId = roomId;
+    $("#link-to-share").html(`<a href="${window.location.href}?room=${player.roomId}" target="_blank">${window.location.href}?room=${player.roomId}</a>`);
 });
 
 $("#form").on("submit", function (e) {
@@ -25,13 +125,16 @@ $("#form").on("submit", function (e) {
     player.username = $("#username").val();
 
     const params = new URLSearchParams(window.location.search);
-    const room = params.get('room');
+    const roomId = params.get('room');
 
-    if (room) {
-        player.room = room;
+    if (roomId) {
+        player.roomId = roomId;
     } else {
-        player.room = uniqid();
+        player.host = true;
+        player.turn = true;
     }
+
+    player.socketId = socket.id;
 
     socket.emit('userData', player);
 
@@ -41,191 +144,154 @@ $("#form").on("submit", function (e) {
 
     $("#user-card").hide();
     $("#waiting-area").removeClass('d-none');
-    $("#link-to-share").text(`${window.location.href}?room=${player.room}`);
+    $("#rooms-card").addClass('d-none');
 });
 
-$(".game-cell").on('click', function (e) {
+$(".cell").on("click", function (e) {
     const playedCell = $(this).attr('id');
-    player.playedCell = playedCell;
 
-    socket.emit('play', player);
+    if ($(this).html() === "" && player.turn) {
+        player.playedCell = playedCell;
 
-    $(this).html(player.symbol);
+        $(this).text(`${player.symbol}`);
+
+        player.win = calculateWinner(playedCell);
+        player.turn = false;
+
+        socket.emit('play', player);
+    }
 });
 
-var playerSymbol;
-var enemySymbol;
-var win;  // TRUE if somebody won the game
-var turn; // Number of the current turn
-var row, column;  // Will contain "coordinates"for a specific cell
-var cpuEnabled = true;  // Set this to false to play against a human
-
-$(document).ready(function () {
-    // Intro screen buttons
-    playerSymbol = "X";
-    enemySymbol = "O";
-
-    // Enemy screen buttons
-    $("#choose-human").on("click", function () {
-        cpuEnabled = false;
-        startGame();
-    });
-    $("#choose-cpu").on("click", function () {
-        cpuEnabled = true;
-        startGame();
-    });
-
-    // Game screen buttons
-    $("#restart").on("click", function () {
-        restartGame();
-    });
-
-    $(".cell").on("click", function () {
-        // If nobody has won yet and clicked cell is empty
-        if (!win && this.innerHTML === "") {
-            if (turn % 2 === 0) { // Even number = player turn
-                insertSymbol(this, playerSymbol);
-            }
-            else { // Odd number = enemy turn
-                insertSymbol(this, enemySymbol);
-            }
-        }
-    });
-});
-
-// Inserts a symbol in the clicked cell
-function insertSymbol(element, symbol) {
-    element.innerHTML = symbol;
-
-    if (symbol === enemySymbol)
-        $("#" + element.id).addClass("player-two"); // Color enemy symbol differently
-    $("#" + element.id).addClass("cannotuse");  // Show a "disabled" cursor on already occupied cells
-
-    checkWinConditions(element);
-    turn++;
-    // Game end - If somebody has won or all cells are filled
-    if (win || turn > 8) {
-        $("#restart").addClass("btn-green");  // Highlights "restart" button
-        $(".cell").addClass("cannotuse");  // Tells visually you can't interact anymore with the game grid
-    }
-    else if (cpuEnabled && turn % 2 !== 0) {
-        cpuTurn();
-    }
-}
-
-/* Changes screen with a fade effect */
-function startGame() {
-    /* Shows the game screen when the intro screen is completely hidden */
-    $("#enemy-screen").fadeOut(300, showGameScreen);
+$("#restart").on("click", function (e) {
     restartGame();
-}
-function showGameScreen() {
-    $("#game-screen").fadeIn(300);
-}
-function showEnemyScreen() {
-    $("#enemy-screen").fadeIn(300);
+});
+
+function startGame(players) {
+    restartArea.addClass('d-none');
+    waitingArea.addClass('d-none');
+    gameCard.removeClass('d-none');
+    turnMsg.removeClass('d-none');
+
+    const ennemyPlayer = players.find(p => p.username != player.username);
+    ennemyUsername = ennemyPlayer.username;
+
+    if (player.host && player.turn) {
+        updateTurnMessage('alert-info', 'alert-success', "C'est ton tour de jouer");
+    } else {
+        updateTurnMessage('alert-success', 'alert-info', `C'est au tour de <b>${ennemyPlayer.username}</b> de jouer`);
+    }
 }
 
-/* Sets everything to its default value */
-function restartGame() {
-    turn = 0;
-    win = false;
-    $(".cell").text("");
-    $(".cell").removeClass("wincell");
-    $(".cell").removeClass("cannotuse");
-    $(".cell").removeClass("player-two");
-    $("#restart").removeClass("btn-green");
+function restartGame(players = null) {
+    $(".cell").html("");
+    $(".cell").removeClass("win-cell");
+    $(".cell").removeClass("text-danger");
+    $("#turn-message").removeClass('alert-warning');
+    $("#turn-message").removeClass('alert-danger');
+
+    if (player.host && !players) {
+        player.turn = true;
+        socket.emit('gameRestart', player.roomId);
+    }
+
+    if (!player.host) {
+        player.turn = false;
+    }
+
+    player.win = false;
+
+    if (players) {
+        startGame(players);
+    }
 }
 
-/* Check if there's a winning combination in the grid (3 equal symbols in a row/column/diagonal) */
-function checkWinConditions(element) {
-    // Retrieve cell coordinates from clicked button id
-    row = element.id[4];
-    column = element.id[5];
+function updateTurnMessage(classToRemove, classToAdd, html) {
+    turnMsg.removeClass(classToRemove).addClass(classToAdd).html(html);
+}
+
+function calculateWinner(playedCell, symbol = player.symbol) {
+    let row = playedCell[5];
+    let column = playedCell[7];
+
 
     // 1) VERTICAL (check if all the symbols in clicked cell's column are the same)
+    let win = true;
 
-    win = true;
-    for (var i = 0; i < 3; i++) {
-        if ($("#cell" + i + column).text() !== element.innerHTML) {
+    for (let i = 1; i < 4; i++) {
+        if ($(`#cell-${i}-${column}`).text() !== symbol) {
             win = false;
         }
     }
+
     if (win) {
-        for (var i = 0; i < 3; i++) {
-            // Highlight the cells that form a winning combination
-            $("#cell" + i + column).addClass("wincell");
+        for (let i = 1; i < 4; i++) {
+            $(`#cell-${i}-${column}`).addClass("win-cell");
         }
-        return; // Exit from the function, to prevent "win" to be set to false by other checks
+
+        return win;
     }
 
     // 2) HORIZONTAL (check the clicked cell's row)
 
     win = true;
-    for (var i = 0; i < 3; i++) {
-        if ($("#cell" + row + i).text() !== element.innerHTML) {
+    for (let i = 1; i < 4; i++) {
+        if ($(`#cell-${row}-${i}`).text() !== symbol) {
             win = false;
         }
     }
+
     if (win) {
-        for (var i = 0; i < 3; i++) {
-            $("#cell" + row + i).addClass("wincell");
+        for (let i = 1; i < 4; i++) {
+            $(`#cell-${row}-${i}`).addClass("win-cell");
         }
-        return;
+
+        return win;
     }
 
     // 3) MAIN DIAGONAL (for the sake of simplicity it checks even if the clicked cell is not in the main diagonal)
 
     win = true;
-    for (var i = 0; i < 3; i++) {
-        if ($("#cell" + i + i).text() !== element.innerHTML) {
+
+    for (let i = 1; i < 4; i++) {
+        if ($(`#cell-${i}-${i}`).text() !== symbol) {
             win = false;
         }
     }
+
     if (win) {
-        for (var i = 0; i < 3; i++) {
-            $("#cell" + i + i).addClass("wincell");
+        for (let i = 1; i < 4; i++) {
+            $(`#cell-${i}-${i}`).addClass("win-cell");
         }
-        return;
+
+        return win;
     }
 
     // 3) SECONDARY DIAGONAL
 
     win = false;
-    if ($("#cell02").text() === element.innerHTML) {
-        if ($("#cell11").text() === element.innerHTML) {
-            if ($("#cell20").text() === element.innerHTML) {
+    if ($("#cell-1-3").text() === symbol) {
+        if ($("#cell-2-2").text() === symbol) {
+            if ($("#cell-3-1").text() === symbol) {
                 win = true;
-                $("#cell02").addClass("wincell");
-                $("#cell11").addClass("wincell");
-                $("#cell20").addClass("wincell");
+
+                $("#cell-1-3").addClass("win-cell");
+                $("#cell-2-2").addClass("win-cell");
+                $("#cell-3-1").addClass("win-cell");
+
+                return win;
             }
         }
     }
 }
 
-// Simple AI (clicks a random empty cell)
-function cpuTurn() {
-    var ok = false;
+function gameFinished() {
+    let gameFinished = true;
 
-    while (!ok) {
-        row = Math.floor(Math.random() * 3);
-        column = Math.floor(Math.random() * 3);
-        if ($("#cell" + row + column).text() === "") {
-            // We have found it! Stop looking for an empty cell
-            ok = true;
+    $(".cell").each(function (index, element) {
+        if ($(element).text() === "") {
+            gameFinished = false;
         }
-    }
+    });
 
-    $("#cell" + row + column).click(); // Emulate a click on the cell
+    return gameFinished;
 }
-
-function uniqid() {
-    var result           = '';
-    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    var charactersLength = characters.length;
-    for ( var i = 0; i < 6; i++ ) {
-       result += characters.charAt(Math.floor(Math.random() * charactersLength));
-    }
-    return result;
- }

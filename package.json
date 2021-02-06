@@ -14,6 +14,7 @@
     "@types/socket.io": "^2.1.13",
     "@types/socket.io-client": "^1.4.35",
     "bootstrap": "^5.0.0-beta1",
+    "cors": "^2.8.5",
     "express": "^4.17.1",
     "jquery": "^3.5.1",
     "path": "^0.12.7",
