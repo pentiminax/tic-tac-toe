@@ -59,11 +59,6 @@ io.on('connection', (socket) => {
             }
         }
 
-        /*if (room.players.length === 2) {
-            io.to(socket.id).emit('maxNumberOfPlayersReached');
-            return;
-        } */
-
         socket.join(room.id);
 
         io.to(socket.id).emit('join room', room.id);

@@ -9,13 +9,26 @@ const player = {
     win: false
 };
 
-const restartArea = $("#restart-area");
-const waitingArea = $("#waiting-area");
-const gameCard = $("#game-card");
-const roomsCard = $("#rooms-card");
-const turnMsg = $("#turn-message");
-
 const socket = io();
+
+const queryString = window.location.search;
+const urlParams = new URLSearchParams(queryString);
+const roomId = urlParams.get('room')
+
+if (roomId) {
+    document.getElementById("start").innerText = "Rejoindre";
+}
+
+const restartArea = document.getElementById('restart-area');
+const waitingArea = document.getElementById('waiting-area');
+
+const userCard = document.getElementById('user-card');
+const gameCard = document.getElementById('game-card');
+
+const roomsCard = document.getElementById('rooms-card');
+const roomsList = document.getElementById('rooms-list');
+
+const turnMsg = document.getElementById('turn-message');
 
 let ennemyUsername = "";
 
@@ -35,22 +48,12 @@ socket.on('list rooms', (rooms) => {
         });
 
         if (html !== "") {
-            roomsCard.removeClass('d-none');
-            $("#rooms-list").append(html);
-            $(".join-room").on("click", function () {
-                if ($("#username").val() !== "") {
-                    const roomId = $(this).data('room');
+            roomsCard.classList.remove('d-none');
+            roomsList.innerHTML = html;
 
-                    player.username = $("#username").val();
-                    player.socketId = socket.id;
-                    player.roomId = roomId;
-
-                    socket.emit('userData', player);
-                    $("#user-card").hide();
-                    $("#waiting-area").removeClass('d-none');
-                    roomsCard.addClass('d-none');
-                }
-            });
+            for (const element of document.getElementsByClassName('join-room')) {
+                element.addEventListener('click', joinRoom, false);
+            }
         }
     }
 });
@@ -66,50 +69,40 @@ socket.on('gameRestart', (players) => {
 socket.on('play', (ennemyPlayer) => {
 
     if (ennemyPlayer.username !== player.username && !ennemyPlayer.turn) {
-
-        $(`#${ennemyPlayer.playedCell}`).addClass('text-danger').html("O");
+        const playedCell = document.getElementById(`${ennemyPlayer.playedCell}`);
+        playedCell.classList.add('text-danger');
+        playedCell.innerHTML = 'O';
 
         if (ennemyPlayer.win) {
             updateTurnMessage('alert-info', 'alert-danger', `C'est perdu ! <b>${ennemyPlayer.username}</b> a gagné !`);
-            console.log(ennemyPlayer);
             calculateWinner(ennemyPlayer.playedCell, 'O');
-
-            if (player.host) {
-                restartArea.removeClass('d-none');
-            }
+            showRestartArea();
 
             return;
         }
 
         if (gameFinished()) {
-            $("#turn-message").removeClass('alert-info').addClass('alert-warning').html(`C'est une egalité !`);
+            updateTurnMessage('alert-info', 'alert-warning', "C'est une egalité !");
             return;
         }
 
-        $("#turn-message").removeClass('alert-info').addClass('alert-success').html(`C'est ton tour de jouer`);
+        updateTurnMessage('alert-info', 'alert-success', "C'est ton tour de jouer");
         player.turn = true;
     } else {
         if (player.win) {
             $("#turn-message").addClass('alert-success').html("Félicitations, tu as gagné la partie !");
-
-            if (player.host) {
-                restartArea.removeClass('d-none');
-            }
-
+            showRestartArea();
             return;
         }
 
         if (gameFinished()) {
-            $("#turn-message").removeClass('alert-info').addClass('alert-warning').html(`C'est une egalité !`);
-
-            if (player.host) {
-                restartArea.removeClass('d-none');
-            }
+            updateTurnMessage('alert-info', 'alert-warning', "C'est une egalité !")
+            showRestartArea();
 
             return;
         }
 
-        $("#turn-message").removeClass('alert-success').addClass('alert-info').html(`C'est au tour de <b>${ennemyUsername}</b> de jouer`);
+        updateTurnMessage('alert-success', 'alert-info', `C'est au tour de <b>${ennemyUsername}</b> de jouer`)
         player.turn = false;
     }
 });
@@ -124,9 +117,6 @@ $("#form").on("submit", function (e) {
 
     player.username = $("#username").val();
 
-    const params = new URLSearchParams(window.location.search);
-    const roomId = params.get('room');
-
     if (roomId) {
         player.roomId = roomId;
     } else {
@@ -138,13 +128,9 @@ $("#form").on("submit", function (e) {
 
     socket.emit('userData', player);
 
-    socket.on('maxNumberOfPlayersReached', function () {
-        $("#error-message").removeClass('d-none');
-    });
-
-    $("#user-card").hide();
-    $("#waiting-area").removeClass('d-none');
-    $("#rooms-card").addClass('d-none');
+    userCard.hidden = true;
+    waitingArea.classList.remove('d-none');
+    roomsCard.classList.add('d-none');
 });
 
 $(".cell").on("click", function (e) {
@@ -167,10 +153,10 @@ $("#restart").on("click", function (e) {
 });
 
 function startGame(players) {
-    restartArea.addClass('d-none');
-    waitingArea.addClass('d-none');
-    gameCard.removeClass('d-none');
-    turnMsg.removeClass('d-none');
+    restartArea.classList.add('d-none');
+    waitingArea.classList.add('d-none');
+    gameCard.classList.remove('d-none');
+    turnMsg.classList.remove('d-none');
 
     const ennemyPlayer = players.find(p => p.username != player.username);
     ennemyUsername = ennemyPlayer.username;
@@ -183,11 +169,14 @@ function startGame(players) {
 }
 
 function restartGame(players = null) {
-    $(".cell").html("");
-    $(".cell").removeClass("win-cell");
-    $(".cell").removeClass("text-danger");
-    $("#turn-message").removeClass('alert-warning');
-    $("#turn-message").removeClass('alert-danger');
+    const cells = document.getElementsByClassName('cell');
+
+    for (const cell of cells) {
+        cell.innerHTML = '';
+        cell.classList.remove('win-cell', 'text-danger');
+    }
+
+    turnMsg.classList.remove('alert-warning', 'alert-danger');
 
     if (player.host && !players) {
         player.turn = true;
@@ -206,7 +195,9 @@ function restartGame(players = null) {
 }
 
 function updateTurnMessage(classToRemove, classToAdd, html) {
-    turnMsg.removeClass(classToRemove).addClass(classToAdd).html(html);
+    turnMsg.classList.remove(classToRemove);
+    turnMsg.classList.add(classToAdd);
+    turnMsg.innerHTML = html;
 }
 
 function calculateWinner(playedCell, symbol = player.symbol) {
@@ -287,11 +278,37 @@ function calculateWinner(playedCell, symbol = player.symbol) {
 function gameFinished() {
     let gameFinished = true;
 
-    $(".cell").each(function (index, element) {
-        if ($(element).text() === "") {
+    const cells = document.getElementsByClassName('cell');
+
+    for (const cell of cells) {
+        if (cell.textContent === '') {
             gameFinished = false;
         }
-    });
+    }
 
     return gameFinished;
+}
+
+function showRestartArea() {
+    if (player.host) {
+        restartArea.classList.remove('d-none');
+    }
+}
+
+const joinRoom = function () {
+    const usernameInput = document.getElementById('username');
+    if (usernameInput.value !== "") {
+        const roomId = this.dataset.room;
+
+        player.username = usernameInput.value;
+        player.socketId = socket.id;
+        player.roomId = roomId;
+
+        socket.emit('userData', player);
+
+        userCard.hidden = true;
+
+        waitingArea.classList.remove('d-none');
+        roomsCard.classList.add('d-none');
+    }
 }
