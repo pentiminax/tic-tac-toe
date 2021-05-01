@@ -36,13 +36,10 @@
             </div>
         </div>
     </nav>
+
     <div class="container mt-5">
         <div class="row">
             <div class="col-sm-12 col-md-6 offset-md-3">
-
-                <div class="alert alert-danger d-none" role="alert" id="error-message">
-                    Le nombre maximum de joueurs à été atteint
-                </div>
 
                 <div class="alert d-none" role="alert" id="turn-message"></div>
 
@@ -64,12 +61,10 @@
 
                 <div class="card mb-3 d-none" id="rooms-card">
                     <div class="card-header">Salons disponibles</div>
-                    <ul class="list-group list-group-flush" id="rooms-list">
-                    </ul>
+                    <ul class="list-group list-group-flush" id="rooms-list"></ul>
                 </div>
 
                 <div class="d-none" id="waiting-area">
-
                     <div class="card mb-3">
                         <div class="card-header">En attente d'un autre joueur</div>
                         <div class="card-body mx-auto">
@@ -85,7 +80,6 @@
                             <span id="link-to-share"></span>
                         </div>
                     </div>
-
                 </div>
 
                 <div class="card d-none" id="game-card">
@@ -122,6 +116,7 @@
             </div>
         </div>
     </div>
+
     <script src="/jquery/jquery.min.js"></script>
     <script src="/bootstrap/js/bootstrap.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>

@@ -1,50 +1,46 @@
 const { Socket } = require('socket.io');
 
 const express = require('express');
-const cors = require('cors');
+
 const app = express();
 const http = require('http').createServer(app);
-
 const path = require('path');
 const port = 8080;
 
 /**
  * @type {Socket}
  */
-const io = require('socket.io')(http, {
-    cors: {
-        origin: "http://localhost:8080",
-        methods: ["GET", "POST"]
-    }
-});
+const io = require('socket.io')(http);
 
 app.use('/bootstrap/css', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/css')));
 app.use('/bootstrap/js', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/js')));
 app.use('/jquery', express.static(path.join(__dirname, 'node_modules/jquery/dist')));
 app.use(express.static('public'));
 
-app.get('/', cors(), (req, res) => {
-    res.sendFile(path.join(__dirname, 'templates/index.html'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'templates/base.html'));
 });
 
 app.get('/games/tic-tac-toe', (req, res) => {
     res.sendFile(path.join(__dirname, 'templates/games/tic-tac-toe.html'));
 });
 
+http.listen(port, () => {
+    console.log(`Listening on http://localhost:${port}/`);
+});
 
 let rooms = [];
 
 io.on('connection', (socket) => {
     console.log(`[connection] ${socket.id}`);
 
-    socket.on('userData', (player) => {
-        console.log(`[userData] ${player.username}`);
+    socket.on('playerData', (player) => {
+        console.log(`[playerData] ${player.username}`);
 
         let room = null;
 
         if (!player.roomId) {
             room = createRoom(player);
-            io.emit('create room', room);
             console.log(`[create room ] - ${room.id} - ${player.username}`);
         } else {
             room = rooms.find(r => r.id === player.roomId);
@@ -53,16 +49,13 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            if (room) {
-                player.roomId = room.id;
-                room.players.push(player);
-            }
+            player.roomId = room.id;
+            room.players.push(player);
         }
 
         socket.join(room.id);
 
         io.to(socket.id).emit('join room', room.id);
-        console.log('join room ==> ' + room.id);
 
         if (room.players.length === 2) {
             io.to(room.id).emit('start game', room.players);
@@ -70,7 +63,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('get rooms', () => {
-        console.log(`[get rooms] ${socket.id}`);
         io.to(socket.id).emit('list rooms', rooms);
     });
 
@@ -79,17 +71,16 @@ io.on('connection', (socket) => {
         io.to(player.roomId).emit('play', player);
     });
 
-    socket.on('gameRestart', (roomId) => {
+    socket.on('play again', (roomId) => {
         const room = rooms.find(r => r.id === roomId);
 
         if (room && room.players.length === 2) {
-            io.to(room.id).emit('gameRestart', room.players);
+            io.to(room.id).emit('play again', room.players);
         }
-    });
+    })
 
     socket.on('disconnect', () => {
         console.log(`[disconnect] ${socket.id}`);
-
         let room = null;
 
         rooms.forEach(r => {
@@ -97,15 +88,10 @@ io.on('connection', (socket) => {
                 if (p.socketId === socket.id && p.host) {
                     room = r;
                     rooms = rooms.filter(r => r !== room);
-                    io.emit('remove room', room);
                 }
-            });
-        });
+            })
+        })
     });
-});
-
-http.listen(port, () => {
-    console.log('Listening on http://localhost:8080/');
 });
 
 function createRoom(player) {
@@ -120,11 +106,5 @@ function createRoom(player) {
 }
 
 function roomId() {
-    let result = '';
-    let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let charactersLength = characters.length;
-    for (let i = 1; i < 9; i++) {
-        result += characters.charAt(Math.floor(Math.random() * charactersLength));
-    }
-    return result;
+    return Math.random().toString(36).substr(2, 9);
 }
