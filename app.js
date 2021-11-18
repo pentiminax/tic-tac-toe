@@ -18,7 +18,7 @@ app.use('/jquery', express.static(path.join(__dirname, 'node_modules/jquery/dist
 app.use(express.static('public'));
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'templates/base.html'));
+    res.sendFile(path.join(__dirname, 'templates/index.html'));
 });
 
 app.get('/games/tic-tac-toe', (req, res) => {
